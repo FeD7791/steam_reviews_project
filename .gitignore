@@ -1,0 +1,6 @@
+web_sc_vir_env/
+chromedriver-win64/
+__pycache__/
+steam_games.ipynb
+webscraping.ipynb
+webscraping_selenium.ipynb

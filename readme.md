@@ -1,5 +1,21 @@
 # Steam Reviews Analyzer using Slang video game words
 
+## Libraries
+The following project was created using the following libraries:
+- requests
+- selenium
+- time
+- webdriver (imported from selenium)
+- ChromeOptions (imported from selenium.webdriver)
+- By (imported from selenium.webdriver.common.by)
+- json
+- bs4.BeautifulSoup
+- pandas
+- sklearn (includes TfidfVectorizer, make_pipeline, LogisticRegression, GridSearchCV)
+- numpy
+- matplotlib.pyplot
+- seaborn
+
 ## Problem: 
 
 Reviews are key whenever data about something is needed in order to make a decision about a product, specially when it is provided by someone that had used the product before.

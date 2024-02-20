@@ -67,19 +67,7 @@ Using the information above is possible to get relevant reviews that used a lot 
 The ML model can give us an score (positive score) that thell us how positively valued think the game is. Here is an example of a few games analyzed and compared with the steam results
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">

@@ -13,7 +13,7 @@ from sklearn.model_selection import  GridSearchCV
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import urllib.parse
+from sklearn.feature_extraction.text import CountVectorizer
 
 def interval_calibrator(min:int, max:int, porcentage=0.75):
     """
@@ -522,35 +522,176 @@ def model_training(X,y,**kwargs):
     return {'model':best_model, 'score':score, 'words':words_dict}
 
 
-def grpahs(slang_class:dict, n_words:int):
-    """
-    Visualizes the distribution of sentiment classifications for slang terms and
-    their coefficients in a 2-part plot.
+# def grpahs(slang_class:dict, n_words:int):
+#     """
+#     Visualizes the distribution of sentiment classifications for slang terms and
+#     their coefficients in a 2-part plot.
 
-    Args:
-        slang_class (dict): A dictionary containing analysis results,
-            expected to have the following keys:
-                - 'classification' (dict): Slang terms and their sentiment classifications.
-                - 'score' (float): Overall positive score.
-                - 'name' (str): Name of the analysis subject.
-                - 'game_slang' (list): List of slang terms and their coefficients.
-        n_words (int): Number of top positive and negative slang terms to display.
+#     Args:
+#         slang_class (dict): A dictionary containing analysis results,
+#             expected to have the following keys:
+#                 - 'classification' (dict): Slang terms and their sentiment classifications.
+#                 - 'score' (float): Overall positive score.
+#                 - 'name' (str): Name of the analysis subject.
+#                 - 'game_slang' (list): List of slang terms and their coefficients.
+#         n_words (int): Number of top positive and negative slang terms to display.
 
-    Raises:
-        ValueError: If required keys are missing in the slang_class dictionary.
+#     Raises:
+#         ValueError: If required keys are missing in the slang_class dictionary.
 
-    Notes:
-        - This function relies on external libraries matplotlib and seaborn.
-        - Consider adjusting plot sizes, colors, and annotations for better visualization.
-        - Explore alternative visualization techniques (e.g., word clouds, scatter plots).
+#     Notes:
+#         - This function relies on external libraries matplotlib and seaborn.
+#         - Consider adjusting plot sizes, colors, and annotations for better visualization.
+#         - Explore alternative visualization techniques (e.g., word clouds, scatter plots).
 
-    Examples:
-        >>> slang_analysis = {'classification': {'lit': 'good', 'meh': 'bad'}, 'score': 0.75, 'name': 'Game X', 'game_slang': [('lit', 0.4), ('meh', -0.2)]}
-        >>> grpahs(slang_analysis, 1)
-    """
+#     Examples:
+#         >>> slang_analysis = {'classification': {'lit': 'good', 'meh': 'bad'}, 'score': 0.75, 'name': 'Game X', 'game_slang': [('lit', 0.4), ('meh', -0.2)]}
+#         >>> grpahs(slang_analysis, 1)
+#     """
+
+#     #Pie Chart
+#     df_class = pd.DataFrame(slang_class['classification'], index=[0])
+#     stk = df_class.stack().value_counts()
+#     keys = stk.keys()
+#     values = list(stk)
+
+#     fig = plt.figure(figsize=(20,15))
+#     ax1 = fig.add_subplot(2,1,1)
+
+
+#     plt.subplots_adjust(wspace=0.7,hspace=0.7)
+#     ax1.pie(x=values,labels=keys, autopct='%.0f%%')
+    
+#     ax1.annotate(f'Positive Score: {slang_class['score']*100}%',xy=(1,0.5),xytext=(1.5,0), fontsize=20)
+#     ax1.annotate(f'Analysis for {slang_class['name']}', xy=(1,1), xytext=(1.5,1), fontsize=20)
+#     ax1.set_title('Slang words count',fontsize=30)
+
+
+#     #Barplots
+#     ax2 = fig.add_subplot(2,1,2)
+#     n = n_words
+#     sc = pd.DataFrame(slang_class['game_slang']).sort_values(by=['coef'])
+#     sc_negative = sc[sc['coef'] < 0]
+#     sc_positive = sc[sc['coef'] > 0]
+#     sns.barplot(x=sc_negative['words'][:n],y=sc['coef'][:n], color='blue')
+#     sns.barplot(x=sc_positive['words'][-n:],y=sc['coef'][-n:], color='red')
+#     xlabels = ax2.get_xticklabels()
+#     ax2.set_xticklabels(xlabels,rotation=90)
+
+#     plt.subplots_adjust(wspace=0.5,hspace=0.5)
+#     plt.show()
+
+def quality_review_finder(reviews:dict, model_results, n_score:int):
+    reviews = pd.DataFrame(reviews)
+    game_slang = game_slang_filter(reviews_df=reviews) #Get slang words present in reviews
+    #Model
+    words_df = pd.DataFrame(model_results['words'])
+    game_slang_dict = words_df[words_df['words'].isin(game_slang)].reset_index(drop=True)
+
+
+    
+    analysis_df = dict(reviews[['review']])
+    ##USE COUNTVECTORIZER
+    params = {
+        'stop_words':'english',
+        'lowercase':True,
+        'strip_accents':'ascii',
+        'ngram_range':(1,3)
+    }
+    count = CountVectorizer(**params)
+
+    new_rev = [] #list used to store the list of feature words obtained with countevectorizer
+    new_rev_2 = [] #list used to store the list of slang words within the list elements in new_rev 
+    nonzero = [] #stores the length of the list elements of new_rev_2
+    for rev in analysis_df['review']:
+        try:
+            count.fit_transform([rev])
+            new_rev.append(count.get_feature_names_out())
+        except ValueError:
+            new_rev.append([])
+    
+    for e in new_rev:
+        new_rev_2.append(list(set(list(game_slang_dict['words'])).intersection(e)))
+        nonzero.append(len(list(set(list(game_slang_dict['words'])).intersection(e))))
+        
+
+    analysis_df['review'] = new_rev_2
+    analysis_df['nonzero'] = nonzero
+    analysis_df = pd.DataFrame(analysis_df) #Dataframe that in the column 'reviews' hast as elements lists of slang words present in the reviews
+    #A lot of them are empty
+    df = analysis_df[analysis_df['nonzero']>0] #Clear the rows with empty lists
+    df = df.sort_values(by=['nonzero'])
+    indexes = list(df[df['nonzero']>n_score].index) #Indexes of the df that fullfill the condition
+    quality_reviews = reviews.loc[indexes,['review']]
+    ##
+    word_list = set([])
+    for e in df['review']:
+        word_list = word_list.union(set(e))
+    
+    best_model = model_results['model']
+    scores = best_model.predict(list(quality_reviews['review']))
+    
+    return {'reviews':list(quality_reviews['review']), 'slang_words':list(word_list), 'scores':scores}
+
+
+def quality_analysis(quality_rev):
+    df_dict = {'reviews':quality_rev['reviews'], 'scores':quality_rev['scores']}
+    df_dict = pd.DataFrame(df_dict).replace(to_replace=0.0, value=-1.0)
+    quality_word_scores = {}
+    distribution_values = {}
+    for word in quality_rev['slang_words']:
+        quality_word_scores[f'{word}'] = 0
+        distribution_values[f'{word}'] = 0
+        
+
+    for key,value in quality_word_scores.items():
+
+        
+        for i in list(df_dict.index):
+            
+            if (key in df_dict.loc[i,'reviews']):
+            
+                value = value + df_dict.loc[i,'scores']
+                distribution_values[f'{key}'] = distribution_values[f'{key}'] + 1
+        
+        quality_word_scores[f'{key}'] = value 
+    return {'quality_word_scores':quality_word_scores, 'distribution_values':distribution_values}
+
+
+def quality_analysis_plotter(quality_word_scores, n_words):
+    ws_df = pd.DataFrame(quality_word_scores, index=[0]).transpose().rename(columns={0:'score'})
+    ws_df['words'] = ws_df.index
+    ws_df = ws_df.sort_values(by=['score']) 
+    fig = plt.figure(figsize=(20,15))
+    ax = fig.add_subplot(1,1,1)
+    sns.barplot(x=ws_df[ws_df['score']<0]['words'][:n_words], y=ws_df[ws_df['score']<0]['score'][:n_words], color='blue')
+    sns.barplot(x=ws_df[ws_df['score']>0]['words'][-n_words:], y=ws_df[ws_df['score']>0]['score'][-n_words:], color='red')
+
+    xlabels = ax.get_xticklabels()
+    ax.set_xticklabels(xlabels,rotation=90)
+    plt.show()
+
+def quality_distribution_plotter(quality_word_scores):
+    
+    ws_df = pd.DataFrame(quality_word_scores, index=[0]).transpose().rename(columns={0:'score'})
+    ws_df['words'] = ws_df.index
+    ws_df = ws_df.sort_values(by=['score']) 
+    ws_df = ws_df[ws_df['score']>0]
+
+    #PLOT
+    fig = plt.figure(figsize=(20,15))
+    ax = fig.add_subplot(1,1,1)
+    keys = ws_df['words']
+    values = ws_df['score']
+    sns.barplot(x=keys,y=values,color='green')
+    xlabels = ax.get_xticklabels()
+    ax.set_xticklabels(xlabels,rotation=90)
+    plt.show()
+
+def general_pie_graph(slang_class):
 
     #Pie Chart
-    df_class = pd.DataFrame(slang_class['classification'], index=[0])
+    df_class = pd.DataFrame(slang_class, index=[0])
     stk = df_class.stack().value_counts()
     keys = stk.keys()
     values = list(stk)
@@ -561,26 +702,5 @@ def grpahs(slang_class:dict, n_words:int):
 
     plt.subplots_adjust(wspace=0.7,hspace=0.7)
     ax1.pie(x=values,labels=keys, autopct='%.0f%%')
-    
-    ax1.annotate(f'Positive Score: {slang_class['score']*100}%',xy=(1,0.5),xytext=(1.5,0), fontsize=20)
-    ax1.annotate(f'Analysis for {slang_class['name']}', xy=(1,1), xytext=(1.5,1), fontsize=20)
     ax1.set_title('Slang words count',fontsize=30)
-
-
-    #Barplots
-    ax2 = fig.add_subplot(2,1,2)
-    n = n_words
-    sc = pd.DataFrame(slang_class['game_slang']).sort_values(by=['coef'])
-    sc_negative = sc[sc['coef'] < 0]
-    sc_positive = sc[sc['coef'] > 0]
-    sns.barplot(x=sc_negative['words'][:n],y=sc['coef'][:n], color='blue')
-    sns.barplot(x=sc_positive['words'][-n:],y=sc['coef'][-n:], color='red')
-    xlabels = ax2.get_xticklabels()
-    ax2.set_xticklabels(xlabels,rotation=90)
-
-    plt.subplots_adjust(wspace=0.5,hspace=0.5)
     plt.show()
-
-
-
-

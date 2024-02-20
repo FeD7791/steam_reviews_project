@@ -4,7 +4,6 @@
 The following project was created using the following libraries:
 - requests
 - selenium
-- time
 - webdriver (imported from selenium)
 - ChromeOptions (imported from selenium.webdriver)
 - By (imported from selenium.webdriver.common.by)
